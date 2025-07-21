@@ -1,0 +1,9 @@
+[project]
+name = "5-letters-new"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "loguru>=0.7.3",
+    "pyqt5>=5.15.11",
+]
