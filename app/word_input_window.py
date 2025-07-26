@@ -110,17 +110,17 @@ class LetterSelectionDialog(QDialog):
             in_word_checkbox.stateChanged.connect(lambda state, r=row: self.update_in_word(r, state))
             self.table.setCellWidget(row, 2, in_word_checkbox)
 
-            # Колонка 3: Не на позиции (поле ввода)
-            exclude_edit = QLineEdit()
-            exclude_edit.setPlaceholderText("Через запятую")
-            exclude_edit.setStyleSheet("font-size: 16px;")
-            exclude_edit.textChanged.connect(lambda text, r=row: self.update_excluded_positions(r, text))
-            self.table.setCellWidget(row, 3, exclude_edit)
+            # Колонка 3: Не на позиции (новое выпадающее меню)
+            exclude_combobox = QComboBox()
+            exclude_combobox.addItems(["0"] + [str(i) for i in range(1, 6)])  # 0-5
+            exclude_combobox.setStyleSheet("font-size: 16px;")
+            exclude_combobox.currentTextChanged.connect(lambda value, r=row: self.update_excluded_position(r, value))
+            self.table.setCellWidget(row, 3, exclude_combobox)
 
-            # Колонка 4: Не в слове (чекбокс) - ПО УМОЛЧАНИЮ ВКЛЮЧЕН
+            # Колонка 4: Не в слове (чекбокс)
             not_in_word_checkbox = QCheckBox()
             not_in_word_checkbox.setStyleSheet("font-size: 16px;")
-            not_in_word_checkbox.setChecked(True)  # ПО УМОЛЧАНИЮ ВКЛЮЧЕН
+            not_in_word_checkbox.setChecked(True)  # По умолчанию включен
             not_in_word_checkbox.stateChanged.connect(lambda state, r=row: self.update_not_in_word(r, state))
             self.table.setCellWidget(row, 4, not_in_word_checkbox)
 
@@ -149,6 +149,27 @@ class LetterSelectionDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
 
+    def update_excluded_position(self, row, value):
+        letter = self.word[row]
+        position = int(value) - 1  # Преобразуем в 0-based индекс
+
+        # Получаем элементы управления для строки
+        in_word_checkbox = self.table.cellWidget(row, 2)
+        not_in_checkbox = self.table.cellWidget(row, 4)
+
+        if position >= 0:  # Если выбрана реальная позиция (не 0)
+            # Автоматически отмечаем "Есть в слове"
+            in_word_checkbox.setChecked(True)
+
+            # Выключаем "Не в слове"
+            not_in_checkbox.setChecked(False)
+
+            # Обновляем множество исключенных позиций
+            self.excluded_positions[letter] = {position}
+        else:
+            # Если выбрано "0" - сбрасываем исключенные позиции
+            self.excluded_positions[letter] = set()
+
     def update_position(self, row, value):
         letter = self.word[row]
         logger.debug(f"letter: {letter}")
@@ -158,16 +179,11 @@ class LetterSelectionDialog(QDialog):
         # Получаем элементы управления для строки
         in_word_checkbox = self.table.cellWidget(row, 2)
         not_in_checkbox = self.table.cellWidget(row, 4)
-        exclude_edit = self.table.cellWidget(row, 3)
-
-        # Сбрасываем исключенные позиции при изменении основной позиции
-        exclude_edit.clear()
-        self.excluded_positions[letter] = set()
+        exclude_combobox = self.table.cellWidget(row, 3)
 
         if number > 0:
-            # Устанавливаем известную позицию ТОЛЬКО если она еще не известна
-            if (number - 1) not in self.result_dict:
-                self.result_dict[number - 1] = letter
+            # Устанавливаем известную позицию
+            self.result_dict[number - 1] = letter
 
             # Автоматически включаем "Есть в слове"
             in_word_checkbox.setChecked(True)
@@ -176,11 +192,15 @@ class LetterSelectionDialog(QDialog):
             # Автоматически выключаем "Не в слове"
             not_in_checkbox.setChecked(False)
 
+            # Сбрасываем исключенные позиции
+            exclude_combobox.setCurrentText("0")
+            self.excluded_positions[letter] = set()
+
             # Убираем букву из списка "не в слове"
             if letter in self.no_list:
                 self.no_list.remove(letter)
         else:
-            # Сбрасываем позицию только если она была установлена в текущей сессии
+            # Сбрасываем позицию
             for key, val in list(self.result_dict.items()):
                 if val == letter:
                     del self.result_dict[key]
