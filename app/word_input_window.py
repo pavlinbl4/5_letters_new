@@ -1,10 +1,10 @@
 import sys
-import re
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QDialog, QLabel, QLineEdit, QPushButton, QCheckBox,
     QVBoxLayout, QComboBox, QTableWidget, QTableWidgetItem,
-    QMessageBox, QHBoxLayout, QHeaderView
+    QMessageBox, QHBoxLayout, QHeaderView, QApplication
 )
 from loguru import logger
 
@@ -271,19 +271,19 @@ class LetterSelectionDialog(QDialog):
             if number_combobox.currentText() == "0":
                 not_in_checkbox.setChecked(True)
 
-    def update_excluded_positions(self, row, text):
-        letter = self.word[row]
-        excluded = set()
-
-        if text.strip():
-            try:
-                positions = [int(pos.strip()) - 1 for pos in text.split(",")
-                             if pos.strip().isdigit() and 1 <= int(pos.strip()) <= 5]
-                excluded = set(positions)
-            except:
-                pass
-
-        self.excluded_positions[letter] = excluded
+    # def update_excluded_positions(self, row, text):
+    #     letter = self.word[row]
+    #     excluded = set()
+    #
+    #     if text.strip():
+    #         try:
+    #             positions = [int(pos.strip()) - 1 for pos in text.split(",")
+    #                          if pos.strip().isdigit() and 1 <= int(pos.strip()) <= 5]
+    #             excluded = set(positions)
+    #         except:
+    #             pass
+    #
+    #     self.excluded_positions[letter] = excluded
 
     def update_not_in_word(self, row, state):
         letter = self.word[row]
@@ -379,3 +379,13 @@ def get_letter_settings(app, pre_selected_word=None):
         return None
 
     return letter_dialog.get_results()
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+
+    # Добавьте этот вызов для тестирования
+    result = get_letter_settings(app)
+    print(result)  # Выведет результат работы диалогов или None, если пользователь отменил
+
+    sys.exit(app.exec_())
