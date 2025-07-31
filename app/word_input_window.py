@@ -80,12 +80,11 @@ class LetterSelectionDialog(QDialog):
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(title)
 
-        # Создаем таблицу с 4 колонками (убрали "Не в слове")
-        self.table = QTableWidget(len(self.word), 4, self)
+        # Создаем таблицу с 3 колонками
+        self.table = QTableWidget(len(self.word), 3, self)
         self.table.setHorizontalHeaderLabels([
             "Буква",
             "Позиция",
-            "Есть в слове",
             "Не на позиции"
         ])
 
@@ -95,7 +94,6 @@ class LetterSelectionDialog(QDialog):
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
 
 
         # это таблица выбора букв
@@ -106,25 +104,19 @@ class LetterSelectionDialog(QDialog):
             item.setFlags(Qt.ItemIsEnabled)
             self.table.setItem(row, 0, item)
 
-            # Колонка 1: Выбор позиции (добавили "нет в слове")
-            number_combobox = QComboBox()
-            number_combobox.addItems(["нет в слове", "1", "2", "3", "4", "5"])
-            number_combobox.setStyleSheet("font-size: 16px;")
-            number_combobox.currentTextChanged.connect(lambda value, r=row: self.update_position(r, value))
-            self.table.setCellWidget(row, 1, number_combobox)
+            # Колонка 1: Выбор позиции (добавили "нет в слове" и "есть в слове")
+            position_combobox = QComboBox()
+            position_combobox.addItems(["нет в слове", "есть в слове", "1", "2", "3", "4", "5"])
+            position_combobox.setStyleSheet("font-size: 16px;")
+            position_combobox.currentTextChanged.connect(lambda value, r=row: self.update_position(r, value))
+            self.table.setCellWidget(row, 1, position_combobox)
 
-            # Колонка 2: Есть в слове (чекбокс)
-            in_word_checkbox = QCheckBox()
-            in_word_checkbox.setStyleSheet("font-size: 16px;")
-            in_word_checkbox.stateChanged.connect(lambda state, r=row: self.update_in_word(r, state))
-            self.table.setCellWidget(row, 2, in_word_checkbox)
-
-            # Колонка 3: Не на позиции (выпадающее меню)
+            # Колонка 2: Не на позиции (выпадающее меню)
             exclude_combobox = QComboBox()
-            exclude_combobox.addItems(["0"] + [str(i) for i in range(1, 6)])  # 0-5
+            exclude_combobox.addItems(["0", "1", "2", "3", "4", "5"])
             exclude_combobox.setStyleSheet("font-size: 16px;")
             exclude_combobox.currentTextChanged.connect(lambda value, r=row: self.update_excluded_position(r, value))
-            self.table.setCellWidget(row, 3, exclude_combobox)
+            self.table.setCellWidget(row, 2, exclude_combobox)
 
             self.excluded_positions[letter] = set()
             self.no_list.append(letter)
@@ -175,49 +167,18 @@ class LetterSelectionDialog(QDialog):
 
         self.setLayout(layout)
 
-    def update_excluded_position(self, row, value):
-        letter = self.word[row]
-        position = int(value) - 1  # Преобразуем в 0-based индекс
-
-        # Получаем элементы управления для строки
-        in_word_checkbox = self.table.cellWidget(row, 2)
-        position_combobox = self.table.cellWidget(row, 1)
-
-        if position >= 0:  # Если выбрана реальная позиция (не 0)
-            # Автоматически отмечаем "Есть в слове"
-            in_word_checkbox.setChecked(True)
-
-            # Обновляем множество исключенных позиций
-            self.excluded_positions[letter] = {position}
-
-            # Если выбрана позиция, убираем "нет в слове" из списка
-            if letter in self.no_list:
-                self.no_list.remove(letter)
-        else:
-            # Если выбрано "0" - сбрасываем исключенные позиции
-            self.excluded_positions[letter] = set()
-
-            # Если не выбрана позиция и не стоит галочка "Есть в слове", добавляем в "нет в слове"
-            if not in_word_checkbox.isChecked():
-                if letter not in self.no_list:
-                    self.no_list.append(letter)
-
     def update_position(self, row, value):
         letter = self.word[row]
         logger.debug(f"letter: {letter}")
 
         # Получаем элементы управления для строки
-        in_word_checkbox = self.table.cellWidget(row, 2)
-        exclude_combobox = self.table.cellWidget(row, 3)
+        exclude_combobox = self.table.cellWidget(row, 2)
 
         if value == "нет в слове":
             # Сбрасываем позицию
             for key, val in list(self.result_dict.items()):
                 if val == letter:
                     del self.result_dict[key]
-
-            # Выключаем "Есть в слове"
-            in_word_checkbox.setChecked(False)
 
             # Сбрасываем исключенные позиции
             exclude_combobox.setCurrentText("0")
@@ -226,46 +187,62 @@ class LetterSelectionDialog(QDialog):
             # Добавляем в список "не в слове"
             if letter not in self.no_list:
                 self.no_list.append(letter)
+
+            # Убираем из "есть в слове"
+            if letter in self.yes_set:
+                self.yes_set.remove(letter)
+
+        elif value == "есть в слове":
+            # Убираем из "не в слове"
+            if letter in self.no_list:
+                self.no_list.remove(letter)
+
+            # Добавляем в "есть в слове"
+            self.yes_set.add(letter)
+
+            # Сбрасываем известную позицию
+            for key, val in list(self.result_dict.items()):
+                if val == letter:
+                    del self.result_dict[key]
         else:
             # Устанавливаем известную позицию
             number = int(value)
             self.result_dict[number - 1] = letter
 
-            # Автоматически включаем "Есть в слове"
-            in_word_checkbox.setChecked(True)
+            # Убираем из "не в слове"
+            if letter in self.no_list:
+                self.no_list.remove(letter)
+
+            # Добавляем в "есть в слове"
+            self.yes_set.add(letter)
 
             # Сбрасываем исключенные позиции
             exclude_combobox.setCurrentText("0")
             self.excluded_positions[letter] = set()
 
-            # Убираем букву из списка "не в слове"
-            if letter in self.no_list:
-                self.no_list.remove(letter)
-
-    def update_in_word(self, row, state):
+    def update_excluded_position(self, row, value):
         letter = self.word[row]
-        logger.debug(f"letter: {letter}")
+        position = int(value) - 1  # Преобразуем в 0-based индекс
+
+        # Получаем элементы управления для строки
         position_combobox = self.table.cellWidget(row, 1)
 
-        # Если установлен чекбокс "Есть в слове"
-        if state == Qt.Checked:
+        if position >= 0:  # Если выбрана реальная позиция (не 0)
+            # Устанавливаем "есть в слове" в позиции
+            position_combobox.setCurrentText("есть в слове")
+
+            # Обновляем множество исключенных позиций
+            self.excluded_positions[letter] = {position}
+
             # Убираем букву из списка "не в слове"
             if letter in self.no_list:
                 self.no_list.remove(letter)
+
+            # Добавляем в "есть в слове"
             self.yes_set.add(letter)
-
-            # Если выбрано "нет в слове", меняем на позицию 1
-            if position_combobox.currentText() == "нет в слове":
-                position_combobox.setCurrentText("1")
         else:
-            # Убираем букву из множества "есть в слове"
-            if letter in self.yes_set:
-                self.yes_set.remove(letter)
-
-            # Если позиция не указана, добавляем в "не в слове"
-            if position_combobox.currentText() == "нет в слове":
-                if letter not in self.no_list:
-                    self.no_list.append(letter)
+            # Если выбрано "0" - сбрасываем исключенные позиции
+            self.excluded_positions[letter] = set()
 
     def get_results(self):
         results = {
@@ -296,12 +273,8 @@ class LetterSelectionDialog(QDialog):
             # Сбрасываем позицию на "нет в слове"
             self.table.cellWidget(row, 1).setCurrentText("нет в слове")
 
-            # Сбрасываем чекбокс "Есть в слове"
-            in_word_checkbox = self.table.cellWidget(row, 2)
-            in_word_checkbox.setChecked(False)
-
             # Сбрасываем поле исключенных позиций
-            self.table.cellWidget(row, 3).setCurrentText("0")
+            self.table.cellWidget(row, 2).setCurrentText("0")
 
             # Добавляем букву в список "не в слове"
             letter = self.word[row]
