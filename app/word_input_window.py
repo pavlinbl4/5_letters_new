@@ -66,8 +66,9 @@ class LetterSelectionDialog(QDialog):
         self.setFixedSize(600, 400)
         self.word = word
         self.no_list = []
-        self.result_dict = {}
-        self.excluded_positions = {}
+        self.used_letters = set()  # Буквы, которые есть в слове (любая позиция)
+        self.result_dict = {}  # Буквы с известными позициями {позиция: буква}
+        self.excluded_positions = {}  # Буквы с исключенными позициями
 
         self.init_ui()
 
@@ -166,6 +167,10 @@ class LetterSelectionDialog(QDialog):
             if letter not in self.no_list:
                 self.no_list.append(letter)
 
+            # Удаляем из используемых букв
+            if letter in self.used_letters:
+                self.used_letters.remove(letter)
+
         elif value == "есть в слове":
             # Убираем из "не в слове"
             if letter in self.no_list:
@@ -178,6 +183,9 @@ class LetterSelectionDialog(QDialog):
 
             # Добавляем текущую позицию в исключенные
             self.excluded_positions[letter] = {current_position}
+
+            # Добавляем в используемые буквы
+            self.used_letters.add(letter)
 
         else:  # Конкретная позиция (1-5)
             position = int(value) - 1  # Преобразуем в 0-based
@@ -192,9 +200,13 @@ class LetterSelectionDialog(QDialog):
             # Очищаем исключенные позиции
             self.excluded_positions[letter] = set()
 
+            # Добавляем в используемые буквы
+            self.used_letters.add(letter)
+
     def get_results(self):
         results = {
             'known_positions': self.result_dict,
+            'used_letters': list(self.used_letters),  # Теперь включаем все буквы, которые есть в слове
             'excluded_positions': self.excluded_positions,
             'unused_letters': self.no_list,
             'word': self.word
@@ -202,6 +214,7 @@ class LetterSelectionDialog(QDialog):
 
         logger.info("Настройки букв для слова: '{}'", self.word)
         logger.info("Известные позиции: {}", self.result_dict)
+        logger.info("Используемые буквы: {}", list(self.used_letters))
         logger.info("Исключенные позиции: {}", self.excluded_positions)
         logger.info("Буквы не в слове: {}", self.no_list)
 
@@ -209,6 +222,7 @@ class LetterSelectionDialog(QDialog):
 
     def reset_choices(self):
         self.no_list.clear()
+        self.used_letters.clear()
         self.result_dict.clear()
         self.excluded_positions = {letter: set() for letter in self.word}
 
