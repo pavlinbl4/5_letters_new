@@ -76,6 +76,12 @@ class LetterSelectionDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout()
 
+        # Заголовок с пояснением
+        title = QLabel("Укажите статус каждой буквы:")
+        title.setStyleSheet("font-size: 18px; font-weight: bold;")
+        layout.addWidget(title)
+
+        # Создаем таблицу
         self.table = QTableWidget(len(self.word), 5, self)
         self.table.setHorizontalHeaderLabels([
             "Буква",
@@ -85,17 +91,24 @@ class LetterSelectionDialog(QDialog):
             "Не в слове"
         ])
 
+        # Настройка внешнего вида таблицы
+        self.table.setStyleSheet("font-size: 16px;")
+
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
 
-        self.table.setStyleSheet("font-size: 16px;")
 
+        # это таблица выбора букв
         for row, letter in enumerate(self.word):
-            # Колонка 0: Буква
-            self.table.setItem(row, 0, QTableWidgetItem(letter))
+
+            # Колонка с буквой
+            item = QTableWidgetItem(letter)
+            item.setTextAlignment(Qt.AlignCenter)
+            item.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(row, 0, item)
 
             # Колонка 1: Выбор позиции (1-5)
             number_combobox = QComboBox()
@@ -129,24 +142,48 @@ class LetterSelectionDialog(QDialog):
 
         layout.addWidget(self.table)
 
-        button_layout = QHBoxLayout()
+        # кнопки внизу
+        button_box = QHBoxLayout()
 
-        self.submit_button = QPushButton("Подтвердить", self)
-        self.submit_button.setStyleSheet("font-size: 16px;")
-        self.submit_button.clicked.connect(self.accept)
-        button_layout.addWidget(self.submit_button)
+        btn_ok = QPushButton("Подтвердить")
+        btn_ok.setStyleSheet("""
+                    QPushButton {
+                        font-size: 16px; 
+                        padding: 8px;
+                        min-width: 120px;
+                        background-color: #4CAF50;
+                        color: white;
+                    }
+                """)
+        btn_ok.clicked.connect(self.accept)
 
-        self.reset_button = QPushButton("Сброс", self)
-        self.reset_button.setStyleSheet("font-size: 16px;")
-        self.reset_button.clicked.connect(self.reset_choices)
-        button_layout.addWidget(self.reset_button)
+        btn_reset = QPushButton("Сбросить")
+        btn_reset.setStyleSheet("""
+                    QPushButton {
+                        font-size: 16px;
+                        padding: 8px;
+                        min-width: 120px;
+                    }
+                """)
+        btn_reset.clicked.connect(self.reset_choices)
 
-        self.cancel_button = QPushButton("Отмена", self)
-        self.cancel_button.setStyleSheet("font-size: 16px;")
-        self.cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_button)
+        btn_cancel = QPushButton("Отмена")
+        btn_cancel.setStyleSheet("""
+                    QPushButton {
+                        font-size: 16px;
+                        padding: 8px;
+                        min-width: 120px;
+                        background-color: #f44336;
+                        color: white;
+                    }
+                """)
+        btn_cancel.clicked.connect(self.reject)
 
-        layout.addLayout(button_layout)
+        button_box.addWidget(btn_ok)
+        button_box.addWidget(btn_reset)
+        button_box.addWidget(btn_cancel)
+        layout.addLayout(button_box)
+
         self.setLayout(layout)
 
     def update_excluded_position(self, row, value):
