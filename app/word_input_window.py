@@ -66,9 +66,9 @@ class LetterSelectionDialog(QDialog):
         self.setFixedSize(600, 400)
         self.word = word
         self.no_list = []
-        self.used_letters = set()  # Буквы, которые есть в слове (любая позиция)
-        self.result_dict = {}  # Буквы с известными позициями {позиция: буква}
-        self.excluded_positions = {}  # Буквы с исключенными позициями
+        self.used_letters = set()
+        self.result_dict = {}
+        self.excluded_positions = {}
 
         self.init_ui()
 
@@ -81,25 +81,30 @@ class LetterSelectionDialog(QDialog):
 
         # Создаем таблицу с 2 колонками
         self.table = QTableWidget(len(self.word), 2, self)
-        self.table.setHorizontalHeaderLabels(["Буква", "Позиция"])
+        self.table.setHorizontalHeaderLabels(["Буква", "Статус"])
         self.table.setStyleSheet("font-size: 16px;")
 
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
 
         for row, letter in enumerate(self.word):
-            # Колонка с буквой
-            item = QTableWidgetItem(letter)
+            # Колонка с буквой (с указанием текущей позиции)
+            item_text = f"{letter} (поз. {row + 1})"
+            item = QTableWidgetItem(item_text)
             item.setTextAlignment(Qt.AlignCenter)
             item.setFlags(Qt.ItemIsEnabled)
             self.table.setItem(row, 0, item)
 
-            # Колонка с выбором позиции
-            position_combobox = QComboBox()
-            position_combobox.addItems(["нет в слове", "есть в слове", "1", "2", "3", "4", "5"])
-            position_combobox.setStyleSheet("font-size: 16px;")
-            position_combobox.currentTextChanged.connect(lambda value, r=row: self.update_position(r, value))
-            self.table.setCellWidget(row, 1, position_combobox)
+            # Колонка с выбором статуса
+            status_combobox = QComboBox()
+            status_combobox.addItems([
+                "нет в слове",
+                "есть в слове (не на этой позиции)",
+                "точно на этой позиции"
+            ])
+            status_combobox.setStyleSheet("font-size: 16px;")
+            status_combobox.currentTextChanged.connect(lambda value, r=row: self.update_status(r, value))
+            self.table.setCellWidget(row, 1, status_combobox)
 
             self.excluded_positions[letter] = set()
             self.no_list.append(letter)  # По умолчанию все буквы "не в слове"
@@ -150,7 +155,7 @@ class LetterSelectionDialog(QDialog):
 
         self.setLayout(layout)
 
-    def update_position(self, row, value):
+    def update_status(self, row, value):
         letter = self.word[row]
         current_position = row  # Текущая позиция буквы в слове (0-based)
 
@@ -171,7 +176,7 @@ class LetterSelectionDialog(QDialog):
             if letter in self.used_letters:
                 self.used_letters.remove(letter)
 
-        elif value == "есть в слове":
+        elif value == "есть в слове (не на этой позиции)":
             # Убираем из "не в слове"
             if letter in self.no_list:
                 self.no_list.remove(letter)
@@ -187,15 +192,13 @@ class LetterSelectionDialog(QDialog):
             # Добавляем в используемые буквы
             self.used_letters.add(letter)
 
-        else:  # Конкретная позиция (1-5)
-            position = int(value) - 1  # Преобразуем в 0-based
-
+        elif value == "точно на этой позиции":
             # Убираем из "не в слове"
             if letter in self.no_list:
                 self.no_list.remove(letter)
 
             # Устанавливаем известную позицию
-            self.result_dict[position] = letter
+            self.result_dict[current_position] = letter
 
             # Очищаем исключенные позиции
             self.excluded_positions[letter] = set()
@@ -206,7 +209,7 @@ class LetterSelectionDialog(QDialog):
     def get_results(self):
         results = {
             'known_positions': self.result_dict,
-            'used_letters': list(self.used_letters),  # Теперь включаем все буквы, которые есть в слове
+            'used_letters': list(self.used_letters),
             'excluded_positions': self.excluded_positions,
             'unused_letters': self.no_list,
             'word': self.word
@@ -227,7 +230,7 @@ class LetterSelectionDialog(QDialog):
         self.excluded_positions = {letter: set() for letter in self.word}
 
         for row in range(self.table.rowCount()):
-            # Сбрасываем позицию на "нет в слове"
+            # Сбрасываем статус на "нет в слове"
             self.table.cellWidget(row, 1).setCurrentText("нет в слове")
 
             # Добавляем букву в список "не в слове"
