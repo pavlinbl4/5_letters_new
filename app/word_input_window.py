@@ -9,17 +9,25 @@ from loguru import logger
 
 
 class WordInputDialog(QDialog):
-    def __init__(self, pre_selected_word=None, parent=None):
+    def __init__(self, quit_callback=None, pre_selected_word=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Введите слово")
         self.setFixedSize(500, 300)
         self.word = None
         self.pre_selected_word = pre_selected_word
+        self.quit_callback = quit_callback
         self.init_ui()
+
+    def quit_game(self):
+        """Обработчик выхода из программы"""
+        if callable(self.quit_callback):
+            self.quit_callback()
+        self.close()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
+        # Поле ввода слова
         self.label = QLabel("Введите слово (ровно 5 букв):")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setStyleSheet("font-size: 18px;")
@@ -31,31 +39,45 @@ class WordInputDialog(QDialog):
 
         if self.pre_selected_word:
             self.word_input.setText(self.pre_selected_word)
-
         layout.addWidget(self.word_input)
 
+        # Кнопка подтверждения
         self.submit_button = QPushButton("Подтвердить", self)
         self.submit_button.setStyleSheet("font-size: 16px;")
         self.submit_button.clicked.connect(self.submit_word)
         layout.addWidget(self.submit_button)
 
+        # Кнопка сброса
         self.reset_button = QPushButton("Сброс", self)
         self.reset_button.setStyleSheet("font-size: 16px;")
         self.reset_button.clicked.connect(self.reset_input)
         layout.addWidget(self.reset_button)
 
+        # Кнопка выхода
+        self.end_button = QPushButton("Закончить", self)
+        self.end_button.setStyleSheet("""
+            font-size: 16px; 
+            padding: 10px; 
+            background-color: #f44336; 
+            color: white;
+        """)
+        self.end_button.clicked.connect(self.quit_game)
+        layout.addWidget(self.end_button)
+
         self.setLayout(layout)
 
     def submit_word(self):
+        """Проверка и подтверждение введенного слова"""
         word = self.word_input.text().strip()
         if len(word) != 5:
             QMessageBox.critical(self, "Ошибка", "Слово должно состоять ровно из 5 букв!")
         else:
             self.word = word
-            logger.debug(f"word: {self.word}")
+            logger.debug(f"Введенное слово: {self.word}")
             self.accept()
 
     def reset_input(self):
+        """Сброс введенного слова"""
         self.word_input.clear()
 
 
@@ -69,24 +91,24 @@ class LetterSelectionDialog(QDialog):
         self.used_letters = set()
         self.result_dict = {}
         self.excluded_positions = {}
-
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
+        # Заголовок
         title = QLabel("Укажите статус каждой буквы:")
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(title)
 
-        # Создаем таблицу с 2 колонками
+        # Таблица с буквами и статусами
         self.table = QTableWidget(len(self.word), 2, self)
         self.table.setHorizontalHeaderLabels(["Буква", "Статус"])
         self.table.setStyleSheet("font-size: 16px;")
-
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
 
+        # Заполнение таблицы
         for row, letter in enumerate(self.word):
             # Колонка с буквой (с указанием текущей позиции)
             item_text = f"{letter} (поз. {row + 1})"
@@ -103,7 +125,8 @@ class LetterSelectionDialog(QDialog):
                 "точно на этой позиции"
             ])
             status_combobox.setStyleSheet("font-size: 16px;")
-            status_combobox.currentTextChanged.connect(lambda value, r=row: self.update_status(r, value))
+            status_combobox.currentTextChanged.connect(
+                lambda value, r=row: self.update_status(r, value))
             self.table.setCellWidget(row, 1, status_combobox)
 
             self.excluded_positions[letter] = set()
@@ -111,7 +134,7 @@ class LetterSelectionDialog(QDialog):
 
         layout.addWidget(self.table)
 
-        # Кнопки управления
+        # Панель кнопок
         button_box = QHBoxLayout()
 
         btn_ok = QPushButton("Подтвердить")
@@ -156,8 +179,9 @@ class LetterSelectionDialog(QDialog):
         self.setLayout(layout)
 
     def update_status(self, row, value):
+        """Обновление статуса буквы"""
         letter = self.word[row]
-        current_position = row  # Текущая позиция буквы в слове (0-based)
+        current_position = row  # Текущая позиция буквы (0-based)
 
         if value == "нет в слове":
             # Удаляем из известных позиций
@@ -207,6 +231,7 @@ class LetterSelectionDialog(QDialog):
             self.used_letters.add(letter)
 
     def get_results(self):
+        """Возвращает результаты выбора"""
         results = {
             'known_positions': self.result_dict,
             'used_letters': list(self.used_letters),
@@ -224,6 +249,7 @@ class LetterSelectionDialog(QDialog):
         return results
 
     def reset_choices(self):
+        """Сброс всех выборов"""
         self.no_list.clear()
         self.used_letters.clear()
         self.result_dict.clear()
@@ -240,8 +266,12 @@ class LetterSelectionDialog(QDialog):
 
 
 def get_letter_settings(app, pre_selected_word=None):
-    """Функция для вызова GUI и получения результатов."""
-    word_dialog = WordInputDialog(pre_selected_word)
+    """Функция для вызова GUI и получения результатов"""
+    def quit_callback():
+        """Callback для выхода из программы"""
+        app.quit()
+
+    word_dialog = WordInputDialog(quit_callback, pre_selected_word)
     if word_dialog.exec_() != QDialog.Accepted or not word_dialog.word:
         return None
 
@@ -255,5 +285,7 @@ def get_letter_settings(app, pre_selected_word=None):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     result = get_letter_settings(app)
-    print(result)
-    sys.exit(app.exec_())
+    if result:
+        print("Результаты:", result)
+    else:
+        print("Программа завершена")
